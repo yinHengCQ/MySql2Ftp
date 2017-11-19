@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:p="http://www.springframework.org/schema/p"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:aop="http://www.springframework.org/schema/aop" xmlns:tx="http://www.springframework.org/schema/tx"
+	xmlns:mvc="http://www.springframework.org/schema/mvc"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans 
+       http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+       http://www.springframework.org/schema/context 
+       http://www.springframework.org/schema/context/spring-context-3.0.xsd
+       http://www.springframework.org/schema/tx 
+       http://www.springframework.org/schema/tx/spring-tx-3.0.xsd
+       http://www.springframework.org/schema/aop
+       http://www.springframework.org/schema/aop/spring-aop-3.0.xsd
+       http://www.springframework.org/schema/mvc
+       http://www.springframework.org/schema/mvc/spring-mvc-3.0.xsd">
+       
+     <!-- 1\扫包 -->
+	<context:annotation-config/>
+	
+	<context:component-scan base-package="com.dao,com.service"></context:component-scan>
+	<!-- 加载 jdbc.properties文件 -->
+	<context:property-placeholder location="classpath*:/jdbc.properties" />
+
+
+	<!-- 2、数据源 c3p0连接池 -->
+	<bean id="dataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource" destroy-method="close">
+		<property name="jdbcUrl" value="${jdbc.url}"></property>
+		<property name="driverClass" value="${jdbc.driver}" />
+		<property name="user" value="${jdbc.uid}" />
+		<property name="password" value="${jdbc.password}" />
+		<!-- 配制c3p0操作 -->
+		<!--连接池中保留的最小连接数。 -->
+		<property name="minPoolSize" value="${c3p0.minPoolSize}" />
+
+		<!--连接池中保留的最大连接数。Default: 15 -->
+		<property name="maxPoolSize" value="${c3p0.maxPoolSize}" />
+
+		<!--最大空闲时间,1800秒内未使用则连接被丢弃。若为0则永不丢弃。Default: 0 -->
+		<property name="maxIdleTime" value="${c3p0.maxIdleTime}" />
+
+		<!-- 执行增加，删除，修改的最大次数 -->
+		<property name="maxStatements" value="${c3p0.maxStatements}" />
+
+		<!-- 连接池的初始化大小 -->
+		<property name="initialPoolSize" value="${c3p0.initialPoolSize}" />
+
+		<!--每60秒检查所有连接池中的空闲连接。Default: 0 -->
+		<property name="idleConnectionTestPeriod" value="${c3p0.idleConnectionTestPeriod}" />
+
+		<!--定义在从数据库获取新连接失败后重复尝试的次数。Default: 30 -->
+		<property name="acquireRetryAttempts" value="${c3p0.acquireRetryAttempts}" />
+
+		<property name="testConnectionOnCheckout" value="${c3p0.testConnectionOnCheckout}" />
+
+	</bean>
+
+
+    <!-- 3.配置session工厂   -->
+    <bean id="sessionFactory" class="org.springframework.orm.hibernate4.LocalSessionFactoryBean">
+       <property name="dataSource" ref="dataSource"></property>
+       <!-- 扫描实体类 -->
+       <property name="packagesToScan" value="com.entity"></property>
+       <!-- hibernate的其他属性 -->
+       <property name="hibernateProperties">
+            <props>
+                  <prop key="hibernate.dialect">${hibernate.dialect}</prop>
+                  <prop key="hibernate.show_sql">${hibernate.show_sql}</prop>
+                  <prop key="hibernate.hbm2ddl.auto">${hbm2ddl.auto}</prop>
+            </props>
+       </property>
+    </bean>
+		
+    <!-- 4.配置事务管理   trans = session.beginTranasaction(); -->
+    <bean id="transactionManager" class="org.springframework.orm.hibernate4.HibernateTransactionManager">
+        <property name="sessionFactory" ref="sessionFactory"></property>
+    </bean>		
+
+    <!-- 5.配置advice -->
+    <tx:advice id="myAdvice" transaction-manager="transactionManager">
+       <tx:attributes>
+            <!-- 以add开头的方法都要支持事务管理 -->
+           <tx:method name="add*" propagation="REQUIRED"/>
+           <tx:method name="update*" propagation="REQUIRED"/>
+           <tx:method name="delete*" propagation="REQUIRED"/>
+           <tx:method name="save*" propagation="REQUIRED"/>
+           <tx:method name="drop*" propagation="REQUIRED"/>
+           
+           <!-- 查询只能读取，不能修改 -->
+           <tx:method name="query*" propagation="REQUIRED" read-only="true"/>
+           <tx:method name="select*" propagation="REQUIRED" read-only="true"/>
+           <tx:method name="get*" propagation="REQUIRED" read-only="true"/>
+       </tx:attributes>
+    </tx:advice>
+    
+    <!-- 6.配置aop expression:表达式     execution:执行-->
+    <aop:config proxy-target-class="true">
+        <aop:pointcut expression="execution(* com.service..*(..))" id="myPoint"/>
+        <aop:advisor advice-ref="myAdvice" pointcut-ref="myPoint"/>
+    </aop:config>
+</beans>
